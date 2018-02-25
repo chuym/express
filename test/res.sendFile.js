@@ -7,6 +7,7 @@ var onFinished = require('on-finished');
 var path = require('path');
 var should = require('should');
 var fixtures = path.join(__dirname, 'fixtures');
+var utils = require('./support/utils');
 
 describe('res', function(){
   describe('.sendFile(path)', function () {
@@ -101,18 +102,39 @@ describe('res', function(){
       app.use(function (req, res) {
         setImmediate(function () {
           res.sendFile(path.resolve(fixtures, 'name.txt'));
-          cb();
+          server.close(cb)
         });
         test.abort();
       });
 
       app.use(function (err, req, res, next) {
-        err.code.should.be.empty;
+        err.code.should.be.empty()
         cb();
       });
 
-      var test = request(app).get('/');
+      var server = app.listen()
+      var test = request(server).get('/')
       test.expect(200, cb);
+    })
+
+    describe('with "cacheControl" option', function () {
+      it('should enable cacheControl by default', function (done) {
+        var app = createApp(path.resolve(__dirname, 'fixtures/name.txt'))
+
+        request(app)
+        .get('/')
+        .expect('Cache-Control', 'public, max-age=0')
+        .expect(200, done)
+      })
+
+      it('should accept cacheControl option', function (done) {
+        var app = createApp(path.resolve(__dirname, 'fixtures/name.txt'), { cacheControl: false })
+
+        request(app)
+        .get('/')
+        .expect(utils.shouldNotHaveHeader('Cache-Control'))
+        .expect(200, done)
+      })
     })
 
     describe('with "dotfiles" option', function () {
@@ -136,8 +158,8 @@ describe('res', function(){
     describe('with "headers" option', function () {
       it('should accept headers option', function (done) {
         var headers = {
-           'x-success': 'sent',
-           'x-other': 'done'
+          'x-success': 'sent',
+          'x-other': 'done'
         };
         var app = createApp(path.resolve(__dirname, 'fixtures/name.txt'), { headers: headers });
 
@@ -154,13 +176,48 @@ describe('res', function(){
 
         request(app)
         .get('/')
-        .expect(404, function (err, res) {
-          if (err) return done(err);
-          res.headers.should.not.have.property('x-success');
-          done();
-        });
+        .expect(utils.shouldNotHaveHeader('X-Success'))
+        .expect(404, done);
       });
     });
+
+    describe('with "immutable" option', function () {
+      it('should add immutable cache-control directive', function (done) {
+        var app = createApp(path.resolve(__dirname, 'fixtures/name.txt'), {
+          immutable: true,
+          maxAge: '4h'
+        })
+
+        request(app)
+        .get('/')
+        .expect('Cache-Control', 'public, max-age=14400, immutable')
+        .expect(200, done)
+      })
+    })
+
+    describe('with "maxAge" option', function () {
+      it('should set cache-control max-age from number', function (done) {
+        var app = createApp(path.resolve(__dirname, 'fixtures/name.txt'), {
+          maxAge: 14400000
+        })
+
+        request(app)
+        .get('/')
+        .expect('Cache-Control', 'public, max-age=14400')
+        .expect(200, done)
+      })
+
+      it('should set cache-control max-age from string', function (done) {
+        var app = createApp(path.resolve(__dirname, 'fixtures/name.txt'), {
+          maxAge: '4h'
+        })
+
+        request(app)
+        .get('/')
+        .expect('Cache-Control', 'public, max-age=14400')
+        .expect(200, done)
+      })
+    })
 
     describe('with "root" option', function () {
       it('should not transfer relative with without', function (done) {
@@ -206,15 +263,16 @@ describe('res', function(){
       app.use(function (req, res) {
         setImmediate(function () {
           res.sendFile(path.resolve(fixtures, 'name.txt'), function (err) {
-            should(err).be.ok;
+            should(err).be.ok()
             err.code.should.equal('ECONNABORTED');
-            cb();
+            server.close(cb)
           });
         });
         test.abort();
       });
 
-      var test = request(app).get('/');
+      var server = app.listen()
+      var test = request(server).get('/')
       test.expect(200, cb);
     })
 
@@ -225,15 +283,16 @@ describe('res', function(){
       app.use(function (req, res) {
         onFinished(res, function () {
           res.sendFile(path.resolve(fixtures, 'name.txt'), function (err) {
-            should(err).be.ok;
+            should(err).be.ok()
             err.code.should.equal('ECONNABORTED');
-            cb();
+            server.close(cb)
           });
         });
         test.abort();
       });
 
-      var test = request(app).get('/');
+      var server = app.listen()
+      var test = request(server).get('/')
       test.expect(200, cb);
     })
 
@@ -276,7 +335,7 @@ describe('res', function(){
 
       app.use(function (req, res) {
         res.sendFile(path.resolve(fixtures, 'does-not-exist'), function (err) {
-          should(err).be.ok;
+          should(err).be.ok()
           err.status.should.equal(404);
           res.send('got it');
         });
@@ -285,6 +344,14 @@ describe('res', function(){
       request(app)
       .get('/')
       .expect(200, 'got it', done);
+    })
+  })
+
+  describe('.sendFile(path, options)', function () {
+    it('should pass options to send module', function (done) {
+      request(createApp(path.resolve(fixtures, 'name.txt'), { start: 0, end: 1 }))
+      .get('/')
+      .expect(200, 'to', done)
     })
   })
 
@@ -322,15 +389,16 @@ describe('res', function(){
       app.use(function (req, res) {
         setImmediate(function () {
           res.sendfile('test/fixtures/name.txt', function (err) {
-            should(err).be.ok;
+            should(err).be.ok()
             err.code.should.equal('ECONNABORTED');
-            cb();
+            server.close(cb)
           });
         });
         test.abort();
       });
 
-      var test = request(app).get('/');
+      var server = app.listen()
+      var test = request(server).get('/')
       test.expect(200, cb);
     })
 
@@ -341,15 +409,16 @@ describe('res', function(){
       app.use(function (req, res) {
         onFinished(res, function () {
           res.sendfile('test/fixtures/name.txt', function (err) {
-            should(err).be.ok;
+            should(err).be.ok()
             err.code.should.equal('ECONNABORTED');
-            cb();
+            server.close(cb)
           });
         });
         test.abort();
       });
 
-      var test = request(app).get('/');
+      var server = app.listen()
+      var test = request(server).get('/')
       test.expect(200, cb);
     })
 
@@ -420,12 +489,10 @@ describe('res', function(){
 
     it('should invoke the callback on 403', function(done){
       var app = express()
-        , calls = 0;
 
       app.use(function(req, res){
         res.sendfile('test/fixtures/foo/../user.html', function(err){
           assert(!res.headersSent);
-          ++calls;
           res.send(err.message);
         });
       });
@@ -438,7 +505,6 @@ describe('res', function(){
 
     it('should invoke the callback on socket error', function(done){
       var app = express()
-        , calls = 0;
 
       app.use(function(req, res){
         res.sendfile('test/fixtures/user.html', function(err){
@@ -484,8 +550,8 @@ describe('res', function(){
     it('should accept headers option', function(done){
       var app = express();
       var headers = {
-         'x-success': 'sent',
-         'x-other': 'done'
+        'x-success': 'sent',
+        'x-other': 'done'
       };
 
       app.use(function(req, res){
@@ -509,11 +575,8 @@ describe('res', function(){
 
       request(app)
       .get('/')
-      .expect(404, function (err, res) {
-        if (err) return done(err);
-        res.headers.should.not.have.property('x-success');
-        done();
-      });
+        .expect(utils.shouldNotHaveHeader('X-Success'))
+        .expect(404, done);
     })
 
     it('should transfer a file', function (done) {
@@ -571,17 +634,18 @@ describe('res', function(){
       app.use(function (req, res) {
         setImmediate(function () {
           res.sendfile(path.resolve(fixtures, 'name.txt'));
-          cb();
+          server.close(cb)
         });
         test.abort();
       });
 
       app.use(function (err, req, res, next) {
-        err.code.should.be.empty;
+        err.code.should.be.empty()
         cb();
       });
 
-      var test = request(app).get('/');
+      var server = app.listen()
+      var test = request(server).get('/')
       test.expect(200, cb);
     })
 
@@ -590,16 +654,13 @@ describe('res', function(){
         var app = express();
 
         app.use(function(req, res){
-          res.sendfile(__dirname + '/fixtures/user.html');
+          res.sendfile(path.join(__dirname, '/fixtures/user.html'))
         });
 
         request(app)
         .get('/')
-        .end(function(err, res){
-          res.text.should.equal('<p>{{user.name}}</p>');
-          res.headers.should.have.property('content-type', 'text/html; charset=UTF-8');
-          done();
-        });
+        .expect('Content-Type', 'text/html; charset=UTF-8')
+        .expect(200, '<p>{{user.name}}</p>', done);
       })
     })
 
@@ -613,11 +674,8 @@ describe('res', function(){
 
         request(app)
         .get('/')
-        .end(function(err, res){
-          res.text.should.equal('<p>{{user.name}}</p>');
-          res.headers.should.have.property('content-type', 'text/html; charset=UTF-8');
-          done();
-        });
+        .expect('Content-Type', 'text/html; charset=UTF-8')
+        .expect(200, '<p>{{user.name}}</p>', done);
       })
 
       it('should serve relative to "root"', function(done){
@@ -629,11 +687,8 @@ describe('res', function(){
 
         request(app)
         .get('/')
-        .end(function(err, res){
-          res.text.should.equal('<p>{{user.name}}</p>');
-          res.headers.should.have.property('content-type', 'text/html; charset=UTF-8');
-          done();
-        });
+        .expect('Content-Type', 'text/html; charset=UTF-8')
+        .expect(200, '<p>{{user.name}}</p>', done);
       })
 
       it('should consider ../ malicious when "root" is not set', function(done){
@@ -701,10 +756,9 @@ describe('res', function(){
       describe('with non-GET', function(){
         it('should still serve', function(done){
           var app = express()
-            , calls = 0;
 
           app.use(function(req, res){
-            res.sendfile(__dirname + '/fixtures/name.txt');
+            res.sendfile(path.join(__dirname, '/fixtures/name.txt'))
           });
 
           request(app)
@@ -713,6 +767,20 @@ describe('res', function(){
         })
       })
     })
+  })
+})
+
+describe('.sendfile(path, options)', function () {
+  it('should pass options to send module', function (done) {
+    var app = express()
+
+    app.use(function (req, res) {
+      res.sendfile(path.resolve(fixtures, 'name.txt'), { start: 0, end: 1 })
+    })
+
+    request(app)
+      .get('/')
+      .expect(200, 'to', done)
   })
 })
 

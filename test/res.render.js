@@ -1,5 +1,6 @@
 
 var express = require('..');
+var path = require('path')
 var request = require('supertest');
 var tmpl = require('./support/tmpl');
 
@@ -11,7 +12,7 @@ describe('res', function(){
       app.locals.user = { name: 'tobi' };
 
       app.use(function(req, res){
-        res.render(__dirname + '/fixtures/user.tmpl');
+        res.render(path.join(__dirname, 'fixtures', 'user.tmpl'))
       });
 
       request(app)
@@ -26,12 +27,26 @@ describe('res', function(){
       app.set('view engine', 'tmpl');
 
       app.use(function(req, res){
-        res.render(__dirname + '/fixtures/user');
+        res.render(path.join(__dirname, 'fixtures', 'user'))
       });
 
       request(app)
       .get('/')
       .expect('<p>tobi</p>', done);
+    })
+
+    it('should error without "view engine" set and file extension to a non-engine module', function (done) {
+      var app = createApp()
+
+      app.locals.user = { name: 'tobi' }
+
+      app.use(function (req, res) {
+        res.render(path.join(__dirname, 'fixtures', 'broken.send'))
+      })
+
+      request(app)
+      .get('/')
+      .expect(500, /does not provide a view engine/, done)
     })
 
     it('should error without "view engine" set and no file extension', function (done) {
@@ -40,7 +55,7 @@ describe('res', function(){
       app.locals.user = { name: 'tobi' };
 
       app.use(function(req, res){
-        res.render(__dirname + '/fixtures/user');
+        res.render(path.join(__dirname, 'fixtures', 'user'))
       });
 
       request(app)
@@ -51,7 +66,7 @@ describe('res', function(){
     it('should expose app.locals', function(done){
       var app = createApp();
 
-      app.set('views', __dirname + '/fixtures');
+      app.set('views', path.join(__dirname, 'fixtures'))
       app.locals.user = { name: 'tobi' };
 
       app.use(function(req, res){
@@ -66,7 +81,7 @@ describe('res', function(){
     it('should expose app.locals with `name` property', function(done){
       var app = createApp();
 
-      app.set('views', __dirname + '/fixtures');
+      app.set('views', path.join(__dirname, 'fixtures'))
       app.locals.name = 'tobi';
 
       app.use(function(req, res){
@@ -81,7 +96,7 @@ describe('res', function(){
     it('should support index.<engine>', function(done){
       var app = createApp();
 
-      app.set('views', __dirname + '/fixtures');
+      app.set('views', path.join(__dirname, 'fixtures'))
       app.set('view engine', 'tmpl');
 
       app.use(function(req, res){
@@ -97,19 +112,19 @@ describe('res', function(){
       it('should next(err)', function(done){
         var app = createApp();
 
-        app.set('views', __dirname + '/fixtures');
+        app.set('views', path.join(__dirname, 'fixtures'))
 
         app.use(function(req, res){
           res.render('user.tmpl');
         });
 
         app.use(function(err, req, res, next){
-          res.end(err.message);
+          res.status(500).send('got error: ' + err.name)
         });
 
         request(app)
         .get('/')
-        .expect(/Cannot read property '[^']+' of undefined/, done);
+        .expect(500, 'got error: RenderError', done)
       })
     })
 
@@ -118,7 +133,7 @@ describe('res', function(){
         var app = createApp();
 
         app.set('view engine', 'tmpl');
-        app.set('views', __dirname + '/fixtures');
+        app.set('views', path.join(__dirname, 'fixtures'))
 
         app.use(function(req, res){
           res.render('email');
@@ -134,7 +149,7 @@ describe('res', function(){
       it('should lookup the file in the path', function(done){
         var app = createApp();
 
-        app.set('views', __dirname + '/fixtures/default_layout');
+        app.set('views', path.join(__dirname, 'fixtures', 'default_layout'))
 
         app.use(function(req, res){
           res.render('user.tmpl', { user: { name: 'tobi' } });
@@ -148,7 +163,10 @@ describe('res', function(){
       describe('when array of paths', function(){
         it('should lookup the file in the path', function(done){
           var app = createApp();
-          var views = [__dirname + '/fixtures/local_layout', __dirname + '/fixtures/default_layout'];
+          var views = [
+            path.join(__dirname, 'fixtures', 'local_layout'),
+            path.join(__dirname, 'fixtures', 'default_layout')
+          ]
 
           app.set('views', views);
 
@@ -163,7 +181,10 @@ describe('res', function(){
 
         it('should lookup in later paths until found', function(done){
           var app = createApp();
-          var views = [__dirname + '/fixtures/local_layout', __dirname + '/fixtures/default_layout'];
+          var views = [
+            path.join(__dirname, 'fixtures', 'local_layout'),
+            path.join(__dirname, 'fixtures', 'default_layout')
+          ]
 
           app.set('views', views);
 
@@ -183,7 +204,7 @@ describe('res', function(){
     it('should render the template', function(done){
       var app = createApp();
 
-      app.set('views', __dirname + '/fixtures');
+      app.set('views', path.join(__dirname, 'fixtures'))
 
       var user = { name: 'tobi' };
 
@@ -199,7 +220,7 @@ describe('res', function(){
     it('should expose app.locals', function(done){
       var app = createApp();
 
-      app.set('views', __dirname + '/fixtures');
+      app.set('views', path.join(__dirname, 'fixtures'))
       app.locals.user = { name: 'tobi' };
 
       app.use(function(req, res){
@@ -214,7 +235,7 @@ describe('res', function(){
     it('should expose res.locals', function(done){
       var app = createApp();
 
-      app.set('views', __dirname + '/fixtures');
+      app.set('views', path.join(__dirname, 'fixtures'))
 
       app.use(function(req, res){
         res.locals.user = { name: 'tobi' };
@@ -229,7 +250,7 @@ describe('res', function(){
     it('should give precedence to res.locals over app.locals', function(done){
       var app = createApp();
 
-      app.set('views', __dirname + '/fixtures');
+      app.set('views', path.join(__dirname, 'fixtures'))
       app.locals.user = { name: 'tobi' };
 
       app.use(function(req, res){
@@ -245,7 +266,7 @@ describe('res', function(){
     it('should give precedence to res.render() locals over res.locals', function(done){
       var app = createApp();
 
-      app.set('views', __dirname + '/fixtures');
+      app.set('views', path.join(__dirname, 'fixtures'))
       var jane = { name: 'jane' };
 
       app.use(function(req, res){
@@ -261,7 +282,7 @@ describe('res', function(){
     it('should give precedence to res.render() locals over app.locals', function(done){
       var app = createApp();
 
-      app.set('views', __dirname + '/fixtures');
+      app.set('views', path.join(__dirname, 'fixtures'))
       app.locals.user = { name: 'tobi' };
       var jane = { name: 'jane' };
 
@@ -279,7 +300,7 @@ describe('res', function(){
     it('should pass the resulting string', function(done){
       var app = createApp();
 
-      app.set('views', __dirname + '/fixtures');
+      app.set('views', path.join(__dirname, 'fixtures'))
 
       app.use(function(req, res){
         var tobi = { name: 'tobi' };
@@ -299,7 +320,7 @@ describe('res', function(){
     it('should pass the resulting string', function(done){
       var app = createApp();
 
-      app.set('views', __dirname + '/fixtures');
+      app.set('views', path.join(__dirname, 'fixtures'))
 
       app.use(function(req, res){
         res.locals.user = { name: 'tobi' };
@@ -318,17 +339,19 @@ describe('res', function(){
       it('should pass it to the callback', function(done){
         var app = createApp();
 
-        app.set('views', __dirname + '/fixtures');
+        app.set('views', path.join(__dirname, 'fixtures'))
 
         app.use(function(req, res){
           res.render('user.tmpl', function (err) {
-            res.end(err.message);
+            if (err) {
+              res.status(500).send('got error: ' + err.name)
+            }
           });
         });
 
         request(app)
         .get('/')
-        .expect(/Cannot read property '[^']+' of undefined/, done);
+        .expect(500, 'got error: RenderError', done)
       })
     })
   })

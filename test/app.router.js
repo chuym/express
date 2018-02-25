@@ -39,10 +39,9 @@ describe('app.router', function(){
 
       it('should include ' + method.toUpperCase(), function(done){
         var app = express();
-        var calls = [];
 
         app[method]('/foo', function(req, res){
-          if ('head' == method) {
+          if (method === 'head') {
             res.end();
           } else {
             res.end(method);
@@ -51,7 +50,7 @@ describe('app.router', function(){
 
         request(app)
         [method]('/foo')
-        .expect('head' == method ? '' : method, done);
+        .expect(method === 'head' ? '' : method, done)
       })
 
       it('should reject numbers for app.' + method, function(){
@@ -77,7 +76,7 @@ describe('app.router', function(){
 
       request(app)
       .get('/')
-      .expect(404, 'Cannot GET /\n', cb);
+      .expect(404, cb)
 
       request(app)
       .delete('/')
@@ -90,7 +89,7 @@ describe('app.router', function(){
     });
   })
 
-  describe('decode querystring', function(){
+  describe('decode params', function () {
     it('should decode correct params', function(done){
       var app = express();
 
@@ -539,8 +538,8 @@ describe('app.router', function(){
 
     request(app)
     .get('/user/10')
-    .end(function(err, res){
-      res.statusCode.should.equal(200);
+    .expect(200, function (err) {
+      if (err) return done(err)
       request(app)
       .get('/user/tj')
       .expect(404, done);
@@ -563,6 +562,30 @@ describe('app.router', function(){
   })
 
   describe('*', function(){
+    it('should capture everything', function (done) {
+      var app = express()
+
+      app.get('*', function (req, res) {
+        res.end(req.params[0])
+      })
+
+      request(app)
+      .get('/user/tobi.json')
+      .expect('/user/tobi.json', done)
+    })
+
+    it('should decore the capture', function (done) {
+      var app = express()
+
+      app.get('*', function (req, res) {
+        res.end(req.params[0])
+      })
+
+      request(app)
+      .get('/user/tobi%20and%20loki.json')
+      .expect('/user/tobi and loki.json', done)
+    })
+
     it('should denote a greedy capture group', function(done){
       var app = express();
 
@@ -757,7 +780,7 @@ describe('app.router', function(){
       .expect('editing tj (old)', cb);
     })
 
-    it('should work inside literal paranthesis', function(done){
+    it('should work inside literal parenthesis', function(done){
       var app = express();
 
       app.get('/:user\\(:op\\)', function(req, res){
@@ -898,6 +921,37 @@ describe('app.router', function(){
       });
 
       app.get('/foo', function(req, res){
+        res.end('success')
+      })
+
+      request(app)
+      .get('/foo')
+      .expect('X-Hit', '1')
+      .expect(200, 'success', done)
+    })
+  })
+
+  describe('when next("router") is called', function () {
+    it('should jump out of router', function (done) {
+      var app = express()
+      var router = express.Router()
+
+      function fn (req, res, next) {
+        res.set('X-Hit', '1')
+        next('router')
+      }
+
+      router.get('/foo', fn, function (req, res, next) {
+        res.end('failure')
+      })
+
+      router.get('/foo', function (req, res, next) {
+        res.end('failure')
+      })
+
+      app.use(router)
+
+      app.get('/foo', function (req, res) {
         res.end('success')
       })
 
